@@ -1,4 +1,5 @@
 use std::f32::consts::PI;
+use macroquad::input::KeyCode::W;
 use macroquad::prelude::*;
 
 #[macroquad::main("A Tiny Corner of the Universe")]
@@ -57,7 +58,7 @@ async fn main() {
             texture: planet_tex[0].clone(),
         });
         planets.push(Planet {
-            position: Vec2::new(800., 200.),
+            position: Vec2::new(800., 270.),
             rotation: rand::gen_range(-PI, PI),
             radius: 200.,
             atmosphere: 350.,
@@ -66,7 +67,7 @@ async fn main() {
             texture: planet_tex[1].clone(),
         });
         planets.push(Planet {
-            position: Vec2::new(280., 370.),
+            position: Vec2::new(280., 470.),
             rotation: rand::gen_range(-PI, PI),
             radius: 180.,
             atmosphere: 320.,
@@ -83,6 +84,15 @@ async fn main() {
             mass: 10000.,
             texture: planet_tex[3].clone(),
         });
+        planets.push(Planet {
+            position: Vec2::new(1100., 1300.),
+            rotation: rand::gen_range(-PI, PI),
+            radius: 160.,
+            atmosphere: 260.,
+            speed: -0.1,
+            mass: 10000.,
+            texture: planet_tex[4].clone(),
+        });
 
         planets.push(Planet {
             position: Vec2::new(370., 1100.),
@@ -92,6 +102,33 @@ async fn main() {
             speed: -0.4,
             mass: 20000.,
             texture: planet_tex[5].clone(),
+        });
+        planets.push(Planet {
+            position: Vec2::new(1550., 850.),
+            rotation: rand::gen_range(-PI, PI),
+            radius: 190.,
+            atmosphere: 370.,
+            speed: -0.1,
+            mass: 10000.,
+            texture: planet_tex[6].clone(),
+        });
+        planets.push(Planet {
+            position: Vec2::new(370., 1700.),
+            rotation: rand::gen_range(-PI, PI),
+            radius: 140.,
+            atmosphere: 280.,
+            speed: -0.1,
+            mass: 10000.,
+            texture: planet_tex[7].clone(),
+        });
+        planets.push(Planet {
+            position: Vec2::new(1840., 230.),
+            rotation: rand::gen_range(-PI, PI),
+            radius: 130.,
+            atmosphere: 210.,
+            speed: -0.3,
+            mass: 10000.,
+            texture: planet_tex[8].clone(),
         });
 
         let game_time = get_time();
@@ -264,8 +301,8 @@ async fn main() {
             // draw atmosphere
             for planet in &planets {
                 draw_poly_lines(planet.position.x, planet.position.y,
-                                32, planet.atmosphere,
-                                planet.rotation * 57.2957795, 2., LIGHTGRAY);
+                                48, planet.atmosphere,
+                                planet.rotation * 57.2957795, 2., WHITE);
             }
 
             for planet in &planets {
@@ -314,15 +351,15 @@ async fn main() {
                                 });
             }
 
-            draw_circle_lines(rocket.position.x, rocket.position.y,
-                              rocket_radius, 2., RED);
-
-            draw_line(rocket_world_points[0].x, rocket_world_points[0].y,
-                      rocket_world_points[1].x, rocket_world_points[1].y,
-                      2., YELLOW);
-            draw_line(rocket_world_points[0].x, rocket_world_points[0].y,
-                      rocket_world_points[2].x, rocket_world_points[2].y,
-                      2., YELLOW);
+            // draw_circle_lines(rocket.position.x, rocket.position.y,
+            //                   rocket_radius, 2., RED);
+            //
+            // draw_line(rocket_world_points[0].x, rocket_world_points[0].y,
+            //           rocket_world_points[1].x, rocket_world_points[1].y,
+            //           2., YELLOW);
+            // draw_line(rocket_world_points[0].x, rocket_world_points[0].y,
+            //           rocket_world_points[2].x, rocket_world_points[2].y,
+            //           2., YELLOW);
 
             next_frame().await
         }
