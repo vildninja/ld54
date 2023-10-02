@@ -1,13 +1,14 @@
 use std::f32::consts::PI;
 use macroquad::input::KeyCode::W;
+use macroquad::miniquad::window::screen_size;
 use macroquad::prelude::*;
 
 #[macroquad::main("A Tiny Corner of the Universe")]
 async fn main() {
 
     let bg_tex: Texture2D = load_texture("bg.png").await.unwrap();
-    let title_tex: Texture2D = load_texture("title.png").await.unwrap();
-    let rot_tex: Texture2D = load_texture("rotate.png").await.unwrap();
+    let left_tex: Texture2D = load_texture("left.png").await.unwrap();
+    let right_tex: Texture2D = load_texture("right.png").await.unwrap();
     let up_tex: Texture2D = load_texture("up.png").await.unwrap();
 
     let rocket_tex: Texture2D = load_texture("rocket.png").await.unwrap();
@@ -31,10 +32,11 @@ async fn main() {
 
     let rocket_radius = 15f32;
     let rocket_points = [
-        Vec2::new(0., -32.),
         Vec2::new(-22., 32.),
         Vec2::new(22., 32.),
     ];
+
+    let mut is_fullscreen = false;
 
     loop {
         let mut rocket = Rocket {
@@ -138,6 +140,10 @@ async fn main() {
         let mut is_alive = true;
         while is_alive {
 
+            let screen_dim = Vec2::new(screen_width(), screen_height());
+            let min_dim = screen_dim.min_element();
+            let third_dim = min_dim / 3.;
+
             let mut input_left = is_key_down(KeyCode::A) ||
                 is_key_down(KeyCode::Left);
             let mut input_right = is_key_down(KeyCode::D) ||
@@ -146,31 +152,38 @@ async fn main() {
                 is_key_down(KeyCode::Up) ||
                 is_key_down(KeyCode::Space);
 
+            if is_key_pressed(KeyCode::F) ||
+                (is_mouse_button_pressed(MouseButton::Left) && mouse_position().1 < third_dim) {
+                set_fullscreen(is_fullscreen);
+                is_fullscreen = !is_fullscreen;
+            }
+
             if is_mouse_button_down(MouseButton::Left) || is_mouse_button_down(MouseButton::Right) {
-                let mouse_pos = mouse_position_local();
-                if mouse_pos.y < 0. {
-                    input_thrust = true;
+                let mouse_pos = mouse_position();
+                if mouse_pos.1 < third_dim {
+                    // fullscreen?
+                    // input_thrust = true;
                 }
-                else if mouse_pos.x < -0.33 {
-                    input_left = true;
-                }
-                else if mouse_pos.x > 0.33 {
+                else if mouse_pos.0 > screen_dim.x - third_dim {
                     input_right = true;
+                }
+                else if mouse_pos.0 > screen_dim.x - third_dim * 2. {
+                    input_left = true;
                 }
                 else {
                     input_thrust = true;
                 }
             }
 
-            for touch in touches_local() {
-                if touch.position.y < 0. {
+            for touch in touches() {
+                if touch.position.y < third_dim {
                     input_thrust = true;
                 }
-                else if touch.position.x < -0.33 {
-                    input_left = true;
-                }
-                else if touch.position.x > 0.33 {
+                else if touch.position.x > screen_dim.x - third_dim {
                     input_right = true;
+                }
+                else if touch.position.x >  screen_dim.x - third_dim * 2. {
+                    input_left = true;
                 }
                 else {
                     input_thrust = true;
@@ -223,7 +236,6 @@ async fn main() {
                 [
                     rocket.position + rotator.rotate(rocket_points[0]),
                     rocket.position + rotator.rotate(rocket_points[1]),
-                    rocket.position + rotator.rotate(rocket_points[2]),
                 ];
 
             rocket.velocity += acceleration * dt;
@@ -238,7 +250,7 @@ async fn main() {
                 is_alive = false;
             }
 
-            let aspect = screen_width() / screen_height();
+            let aspect = screen_dim.x / screen_height();
             let zoom_amount = 1. / 600.;
             let zoom = if aspect > 1. {
                 Vec2::new(zoom_amount / aspect, zoom_amount)
@@ -250,38 +262,26 @@ async fn main() {
             set_default_camera();
             let sky_color = Color::new(0.05, 0.0, 0.15, 1.00);
             clear_background(sky_color);
-            let title_height = screen_width() * (120. / 800.);
-            draw_texture_ex(&title_tex, 0., screen_height() - title_height, GOLD,
+
+            let arrow_size = min_dim / 6.;
+            let half_arrow_size = arrow_size / 2.;
+            let arrow_y_pos = screen_height() - third_dim + half_arrow_size;
+
+            draw_texture_ex(&left_tex, screen_dim.x - third_dim * 2. + half_arrow_size, arrow_y_pos, WHITE,
                             DrawTextureParams {
-                            dest_size: Some(Vec2::new(screen_width(), title_height)),
-                            ..DrawTextureParams::default()
-            });
-
-            if get_game_time() < 10. {
-                let alpha = ((10. - get_game_time()) / 10.) as f32;
-                let color = Color::new(
-                    GOLD.r * alpha + sky_color.r * (1. - alpha),
-                    GOLD.g * alpha + sky_color.g * (1. - alpha),
-                    GOLD.b * alpha + sky_color.b * (1. - alpha),
-                    1.);
-
-                draw_texture_ex(&rot_tex, 0., screen_height() / 2., color,
-                                DrawTextureParams {
-                                    dest_size: Some(Vec2::new(screen_width() / 3., screen_width() * (100. / 170.) / 4.)),
-                                    ..DrawTextureParams::default()
-                                });
-                draw_texture_ex(&rot_tex, screen_width() * 3. / 4., screen_height() / 2., color,
-                                DrawTextureParams {
-                                    dest_size: Some(Vec2::new(screen_width() / 4., screen_width() * (100. / 170.) / 4.)),
-                                    flip_x: true,
-                                    ..DrawTextureParams::default()
-                                });
-                draw_texture_ex(&up_tex, (screen_width() - screen_height() / 10.) / 2., screen_height() / 2., color,
-                                DrawTextureParams {
-                                    dest_size: Some(Vec2::new(screen_height() / 10., screen_height() / 3.)),
-                                    ..DrawTextureParams::default()
-                                });
-            }
+                                dest_size: Some(Vec2::new(arrow_size, arrow_size)),
+                                ..DrawTextureParams::default()
+                            });
+            draw_texture_ex(&right_tex, screen_dim.x - third_dim + half_arrow_size, arrow_y_pos, WHITE,
+                            DrawTextureParams {
+                                dest_size: Some(Vec2::new(arrow_size, arrow_size)),
+                                ..DrawTextureParams::default()
+                            });
+            draw_texture_ex(&up_tex, half_arrow_size, arrow_y_pos, WHITE,
+                            DrawTextureParams {
+                                dest_size: Some(Vec2::new(arrow_size, arrow_size)),
+                                ..DrawTextureParams::default()
+                            });
 
             let camera = Camera2D {
                 zoom,
@@ -302,7 +302,7 @@ async fn main() {
             for planet in &planets {
                 draw_poly_lines(planet.position.x, planet.position.y,
                                 48, planet.atmosphere,
-                                planet.rotation * 57.2957795, 2., WHITE);
+                                planet.rotation * 57.2957795, 5., Color::new(0.7, 0.7, 1.0, 0.1));
             }
 
             for planet in &planets {
@@ -315,22 +315,26 @@ async fn main() {
                         // body hit
                         is_alive = false;
                     }
-                    // else if rocket_world_points[0].distance_squared(planet.position) < radius_sq {
-                    //     // rocket tip hit
-                    //     is_alive = false;
-                    // }
+                    else {
+                        let left_foot = (planet.radius - rocket_world_points[0].distance(planet.position)).max(0.);
+                        let right_foot = (planet.radius - rocket_world_points[1].distance(planet.position)).max(0.);
+                    }
                 }
 
-
+                let img_size = planet.radius * 2.05;
                 draw_texture_ex(&planet.texture,
-                                planet.position.x - planet.radius,
-                                planet.position.y - planet.radius,
+                                planet.position.x - img_size / 2.,
+                                planet.position.y - img_size / 2.,
                                 WHITE,
                                 DrawTextureParams {
-                                    dest_size: Some(Vec2::new(planet.radius * 2.02, planet.radius * 2.02)),
+                                    dest_size: Some(Vec2::new(img_size, img_size)),
                                     rotation: planet.rotation,
                                     ..DrawTextureParams::default()
                                 });
+
+                // draw_poly_lines(planet.position.x, planet.position.y,
+                //                 48, planet.radius,
+                //                 planet.rotation * 57.2957795, 1., RED);
             }
 
             draw_texture_ex(&rocket.texture, rocket.position.x - 25., rocket.position.y - 30., WHITE,
@@ -360,6 +364,11 @@ async fn main() {
             // draw_line(rocket_world_points[0].x, rocket_world_points[0].y,
             //           rocket_world_points[2].x, rocket_world_points[2].y,
             //           2., YELLOW);
+
+            // draw_line(100., 0., 500., 0., 2., RED);
+            // draw_line(0., 100., 0., 500., 2., GREEN);
+            // draw_line(1000., 0., 1000., 500., 2., BLACK);
+            // draw_line(0., 1000., 500., 1000., 2., BLACK);
 
             next_frame().await
         }
