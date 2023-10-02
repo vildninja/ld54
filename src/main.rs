@@ -177,7 +177,7 @@ async fn main() {
                 }
             }
 
-            if get_game_time() < 2. {
+            if get_game_time() < 1. {
                 input_thrust = false;
             }
 
@@ -315,10 +315,10 @@ async fn main() {
                         // body hit
                         is_alive = false;
                     }
-                    else if rocket_world_points[0].distance_squared(planet.position) < radius_sq {
-                        // rocket tip hit
-                        is_alive = false;
-                    }
+                    // else if rocket_world_points[0].distance_squared(planet.position) < radius_sq {
+                    //     // rocket tip hit
+                    //     is_alive = false;
+                    // }
                 }
 
 
