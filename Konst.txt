@@ -1,0 +1,1 @@
+Konst { g_const: 3.4, spin_input_torque: 42.315926, spin_drag: 8.801001, surface_brake: 5.0, thrust_input_accel: 337.7, rocket_radius: 15.0, rocket_feet_height: 32.0, rocket_feet_width: 22.0 }
