@@ -1,32 +1,37 @@
 use std::f32::consts::PI;
-use std::ops::AddAssign;
 use macroquad::hash;
 use macroquad::prelude::*;
 use macroquad::ui::root_ui;
 
+
 #[macroquad::main("A Tiny Corner of the Universe")]
 async fn main() {
 
-    let bg_tex: Texture2D = load_texture("bg.png").await.unwrap();
-    let left_tex: Texture2D = load_texture("left.png").await.unwrap();
-    let right_tex: Texture2D = load_texture("right.png").await.unwrap();
-    let up_tex: Texture2D = load_texture("up.png").await.unwrap();
+    let bg_tex: Texture2D = load_texture("res/bg.png").await.unwrap();
+    let left_tex: Texture2D = load_texture("res/left.png").await.unwrap();
+    let right_tex: Texture2D = load_texture("res/right.png").await.unwrap();
+    let up_tex: Texture2D = load_texture("res/up.png").await.unwrap();
 
-    let rocket_tex: Texture2D = load_texture("rocket.png").await.unwrap();
-    let flame_tex: Texture2D = load_texture("flame.png").await.unwrap();
+    let rocket_tex: Texture2D = load_texture("res/rocket.png").await.unwrap();
+    let flame_tex: Texture2D = load_texture("res/flame.png").await.unwrap();
 
     let planet_tex = [
-        load_texture("planet_01.png").await.unwrap(),
-        load_texture("planet_02.png").await.unwrap(),
-        load_texture("planet_03.png").await.unwrap(),
-        load_texture("planet_04.png").await.unwrap(),
-        load_texture("planet_05.png").await.unwrap(),
-        load_texture("planet_06.png").await.unwrap(),
-        load_texture("planet_07.png").await.unwrap(),
-        load_texture("planet_08.png").await.unwrap(),
-        load_texture("planet_09.png").await.unwrap(),
-        load_texture("planet_10.png").await.unwrap(),
+        load_texture("res/planet_01.png").await.unwrap(),
+        load_texture("res/planet_02.png").await.unwrap(),
+        load_texture("res/planet_03.png").await.unwrap(),
+        load_texture("res/planet_04.png").await.unwrap(),
+        load_texture("res/planet_05.png").await.unwrap(),
+        load_texture("res/planet_06.png").await.unwrap(),
+        load_texture("res/planet_07.png").await.unwrap(),
+        load_texture("res/planet_08.png").await.unwrap(),
+        load_texture("res/planet_09.png").await.unwrap(),
+        load_texture("res/planet_10.png").await.unwrap(),
     ];
+
+    let mut house_tex: Vec<Texture2D> = Vec::new();
+    for number in  2..=22 {
+        house_tex.push(load_texture(&format!("res/house_{number}.png")).await.unwrap());
+    }
 
     simulate_mouse_with_touch(false);
     let mut mouse_input = true;
@@ -34,10 +39,13 @@ async fn main() {
 
     let mut k: Konst = include!("../Konst.txt");
 
+
     #[cfg(debug_assertions)]
     {
         mouse_input = false;
     }
+
+    let mut last_death: Option<Vec2> = None;
 
     loop {
         let mut rocket = Rocket {
@@ -46,7 +54,7 @@ async fn main() {
             rotation: PI * 3. / 4.,
             mass: 100.,
             velocity: Vec2::new(-60., -60.),
-            spin: - PI / 4.,
+            spin: 0.,
         };
 
 
@@ -144,6 +152,7 @@ async fn main() {
         ];
 
         let game_time = get_time();
+        let mut air_time: f32 = 10.;
 
         let get_game_time = || get_time() - game_time;
 
@@ -215,12 +224,13 @@ async fn main() {
 
             #[cfg(debug_assertions)]
             root_ui().window(hash!(),
-                             Vec2::new(0., third_dim),
-                             Vec2::new(200., 200.),
+                             Vec2::new(10., 10.),
+                             Vec2::new(200., 300.),
                              |ui| {
                                  ui.checkbox(hash!(), "mouse input", &mut mouse_input);
                                  ui.drag(hash!(), "g const", (0.001, 100.), &mut k.g_const);
                                  ui.drag(hash!(), "spin input", (1., 200.), &mut k.spin_input_torque);
+                                 ui.drag(hash!(), "max spin", (1., 100.), &mut k.max_spin);
                                  ui.drag(hash!(), "spin drag", (0.001, 50.), &mut k.spin_drag);
                                  ui.drag(hash!(), "surface brake", (0.001, 50.), &mut k.surface_brake);
                                  ui.drag(hash!(), "thrust input", (100., 1000.), &mut k.thrust_input_accel);
@@ -265,7 +275,8 @@ async fn main() {
             }
 
             rocket.spin += torque * dt;
-            rocket.spin = lerp_exp(rocket.spin, base_spin, k.spin_drag, dt);
+            rocket.spin = lerp_exp(rocket.spin, base_spin, k.spin_drag, dt). //  * air_time.min(1.)
+                clamp(-k.max_spin, k.max_spin);
 
             rocket.rotation = wrap_rotation(rocket.rotation + rocket.spin * dt);
             let rotator = Vec2::new(rocket.rotation.cos(), rocket.rotation.sin());
@@ -278,48 +289,87 @@ async fn main() {
             rocket.position += rocket.velocity * dt;
             // dbg!(rocket.position);
 
-            let foot_position = [
-                rocket.position + rotator.rotate(Vec2::new(-k.rocket_feet_width, k.rocket_feet_height)),
-                rocket.position + rotator.rotate(Vec2::new(k.rocket_feet_width, k.rocket_feet_height)),
+            air_time += dt;
+
+            let foot_offset = [
+                rotator.rotate(Vec2::new(-k.rocket_feet_width, k.rocket_feet_height)),
+                rotator.rotate(Vec2::new(k.rocket_feet_width, k.rocket_feet_height)),
             ];
 
-            let danger_radius = Vec2::new(k.rocket_feet_width, k.rocket_feet_height).length();
-            for planet in &planets {
-                let dist_sq = planet.position.distance_squared(rocket.position);
+            let foot_length = foot_offset[0].length();
 
-                if dist_sq < square(planet.radius + danger_radius) {
+            for planet in &planets {
+                let mut dist_sq = planet.position.distance_squared(rocket.position);
+
+                if dist_sq < square(planet.radius + foot_length) {
+
+                    let feet = foot_offset.map(|offset| (
+                        offset,
+                        rocket.position + offset,
+                        rocket.velocity + offset.perp() * rocket.spin * dt,
+                    ));
+
+                    let mut impact_result: Option<(Vec2, Vec2, f32)> = None;
+
+                    for (offset, position, velocity) in feet {
+
+                        let on_ground = position - planet.position;
+                        let planet_dist = on_ground.length();
+                        if planet_dist < planet.radius {
+
+
+                            let ground_norm = on_ground / planet_dist;
+
+                            let ground_offset = ground_norm * (planet.radius - planet_dist);
+                            let ground_velocity = on_ground.perp() * planet.speed;
+                            // let impact_vector = on_ground + ground_velocity;
+                            // let impact_up = -velocity.project_onto_normalized(dbg!(ground_norm));
+                            let ground_dot = ground_norm.dot(velocity).min(0.);
+                            let impact_up_velocity = ground_norm * -dbg!(ground_dot);
+                            let impact_ground_velocity = ground_velocity - velocity.project_onto_normalized(ground_norm.perp());
+                            let impact_velocity = dbg!(impact_up_velocity) + dbg!(impact_ground_velocity);
+                            let impact_spin = offset.perp_dot(impact_velocity);
+
+                            impact_result = if let Some((cur_offset, cur_velocity, cur_spin)) = impact_result {
+                                let combined_offset = cur_offset + ground_offset;
+                                Some((
+                                    if cur_offset.length_squared() > ground_offset.length_squared() {
+                                        cur_offset.project_onto(combined_offset)
+                                    }
+                                    else {
+                                        ground_offset.project_onto(combined_offset)
+                                    },
+                                    (cur_velocity + impact_velocity) / 2.,
+                                    if cur_spin.is_sign_positive() == impact_spin.is_sign_positive() {
+                                        cur_spin.abs().max(impact_spin.abs()).copysign(cur_spin)
+                                    }
+                                    else {
+                                        cur_spin + impact_spin
+                                    }
+                                ))
+                            }
+                            else {
+                                Some((ground_offset, impact_velocity, impact_spin))
+                            };
+                        }
+                    }
+
+                    if let Some((ground_offset, impact_velocity, impact_spin)) = impact_result {
+                        rocket.position += ground_offset * 0.9;
+                        rocket.velocity += impact_velocity * 0.9;
+
+                        let r_inertia = 4. / (PI * square(square(k.rocket_radius)));
+                        rocket.spin += impact_spin * r_inertia;
+
+                        // update dist_sq to prevent death from unresolved collisions
+                        dist_sq = planet.position.distance_squared(rocket.position);
+                        air_time = 0.;
+                    }
+
                     if dist_sq < square(planet.radius + k.rocket_radius) {
                         // body hit
                         is_alive = false;
                         break;
-                    }
-
-
-                    let mut resolve = None;
-
-                    for foot in foot_position {
-                        let on_ground = foot - planet.position;
-                        let planet_dist = on_ground.length();
-                        if planet_dist < planet.radius {
-                            resolve.get_or_insert(Vec2::default()).
-                                add_assign(on_ground * (planet.radius - planet_dist) / planet_dist);
-                        }
-                    }
-
-                    if let Some(push) = resolve {
-
-                        rocket.rotation += planet.speed * dt;
-
-
-                        // only resolve half
-                        rocket.position += push / 2.;
-                        let negate_velocity = rocket.velocity.project_onto(push);
-                        rocket.velocity -= negate_velocity;
-
-                        let surface_velocity = (rocket.position - planet.position).perp() * planet.speed;
-                        let old_surface_velocity = rocket.velocity.project_onto(surface_velocity);
-                        rocket.velocity -= old_surface_velocity;
-                        rocket.velocity += v_lerp_exp(old_surface_velocity, surface_velocity, k.surface_brake, dt);
                     }
 
                 }
@@ -425,6 +475,7 @@ async fn main() {
                               lerp(0.2, 0.0, safety),
                               0.1 * alpha));
             }
+            let mut house_iter = house_tex.iter().cycle();
 
             for planet in &planets {
                 let img_size = planet.radius * 2.05;
@@ -438,9 +489,27 @@ async fn main() {
                                     ..DrawTextureParams::default()
                                 });
 
-                // draw_poly_lines(planet.position.x, planet.position.y,
-                //                 48, planet.radius,
-                //                 planet.rotation * 57.2957795, 1., RED);
+                let mut house_rot = 0.;
+                for _ in 0..7 {
+                    if let Some(house_x_tex) = house_iter.next() {
+                        draw_texture_ex(house_x_tex,
+                                        planet.position.x - house_x_tex.width() / 2.,
+                                        planet.position.y - planet.radius - house_x_tex.height() + 10.,
+                                        WHITE,
+                                        DrawTextureParams {
+                                            // dest_size: Some(Vec2::new(20., 40.)),
+                                            rotation: planet.rotation + house_rot,
+                                            pivot: Some(planet.position),
+                                            ..DrawTextureParams::default()
+                                        });
+                        house_rot += PI * 2. * 1.618033988;
+                    }
+                }
+
+                #[cfg(debug_assertions)]
+                draw_poly_lines(planet.position.x, planet.position.y,
+                                48, planet.radius,
+                                planet.rotation * 57.2957795, 1., RED);
             }
 
             draw_texture_ex(&rocket.texture, rocket.position.x - 25., rocket.position.y - 30., WHITE,
@@ -477,10 +546,21 @@ async fn main() {
                 draw_line(0., 100., 0., 500., 2., GREEN);
                 draw_line(1000., 0., 1000., 500., 2., BLACK);
                 draw_line(0., 1000., 500., 1000., 2., BLACK);
+
+                if let Some(death_pos) = &last_death {
+                    draw_circle(death_pos.x, death_pos.y, k.rocket_radius, RED);
+                }
+                // if let Some(index) = killer_index {
+                //     if let Some(killer) = &planets.get(index) {
+                //         draw_circle_lines(killer.position.x, killer.position.y, killer.radius - 1., 2., RED);
+                //     }
+                // }
+                draw_circle_lines(rocket.position.x, rocket.position.y, k.rocket_radius, 2., ORANGE);
             }
 
             next_frame().await
         }
+        last_death = Some(rocket.position);
     }
 }
 
@@ -495,6 +575,7 @@ struct Konst
     rocket_radius: f32,
     rocket_feet_height: f32,
     rocket_feet_width: f32,
+    max_spin: f32,
 }
 
 impl Default for Konst {
@@ -508,6 +589,7 @@ impl Default for Konst {
             rocket_radius: 15.,
             rocket_feet_height: 32.,
             rocket_feet_width: 22.,
+            max_spin: 10.,
         }
     }
 }
