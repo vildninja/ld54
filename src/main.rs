@@ -12,6 +12,8 @@ async fn main() {
     let right_tex: Texture2D = load_texture("res/right.png").await.unwrap();
     let up_tex: Texture2D = load_texture("res/up.png").await.unwrap();
 
+    let dir_indicator_tex = load_texture("res/dir.png").await.unwrap();
+
     let rocket_tex: Texture2D = load_texture("res/rocket.png").await.unwrap();
     let flame_tex: Texture2D = load_texture("res/flame.png").await.unwrap();
 
@@ -27,6 +29,7 @@ async fn main() {
         load_texture("res/planet_09.png").await.unwrap(),
         load_texture("res/planet_10.png").await.unwrap(),
     ];
+
 
     let mut house_tex: Vec<Texture2D> = Vec::new();
     for number in  2..=22 {
@@ -64,7 +67,7 @@ async fn main() {
                 rotation: rand::gen_range(-PI, PI),
                 radius: 200.,
                 atmosphere: 350.,
-                speed: 0.2,
+                spin: 0.2,
                 mass: 10000.,
                 texture: planet_tex[0].clone(), // lake
             },
@@ -73,7 +76,7 @@ async fn main() {
                 rotation: rand::gen_range(-PI, PI),
                 radius: 210.,
                 atmosphere: 350.,
-                speed: -0.22,
+                spin: -0.22,
                 mass: 10000.,
                 texture: planet_tex[1].clone(), // red
             },
@@ -82,7 +85,7 @@ async fn main() {
                 rotation: rand::gen_range(-PI, PI),
                 radius: 180.,
                 atmosphere: 320.,
-                speed: 0.2,
+                spin: 0.2,
                 mass: 10000.,
                 texture: planet_tex[2].clone(), // ice
             },
@@ -91,7 +94,7 @@ async fn main() {
                 rotation: rand::gen_range(-PI, PI),
                 radius: 220.,
                 atmosphere: 370.,
-                speed: 0.35,
+                spin: 0.35,
                 mass: 10000.,
                 texture: planet_tex[3].clone(), // island
             },
@@ -100,7 +103,7 @@ async fn main() {
                 rotation: rand::gen_range(-PI, PI),
                 radius: 160.,
                 atmosphere: 260.,
-                speed: -0.1,
+                spin: -0.1,
                 mass: 10000.,
                 texture: planet_tex[4].clone(), // no moon
             },
@@ -109,7 +112,7 @@ async fn main() {
                 rotation: rand::gen_range(-PI, PI),
                 radius: 250.,
                 atmosphere: 400.,
-                speed: -0.4,
+                spin: -0.4,
                 mass: 20000.,
                 texture: planet_tex[5].clone(), // dragon
             },
@@ -118,7 +121,7 @@ async fn main() {
                 rotation: rand::gen_range(-PI, PI),
                 radius: 190.,
                 atmosphere: 370.,
-                speed: -0.1,
+                spin: -0.1,
                 mass: 10000.,
                 texture: planet_tex[6].clone(), // lava
             },
@@ -127,7 +130,7 @@ async fn main() {
                 rotation: rand::gen_range(-PI, PI),
                 radius: 170.,
                 atmosphere: 310.,
-                speed: -0.3,
+                spin: -0.3,
                 mass: 10000.,
                 texture: planet_tex[7].clone(), // river
             },
@@ -136,7 +139,7 @@ async fn main() {
                 rotation: rand::gen_range(-PI, PI),
                 radius: 130.,
                 atmosphere: 210.,
-                speed: -0.4,
+                spin: -0.4,
                 mass: 15000.,
                 texture: planet_tex[8].clone(), // bloom
             },
@@ -145,7 +148,7 @@ async fn main() {
                 rotation: rand::gen_range(-PI, PI),
                 radius: 110.,
                 atmosphere: 240.,
-                speed: 0.2,
+                spin: 0.2,
                 mass: 15000.,
                 texture: planet_tex[9].clone(), // sub
             },
@@ -153,6 +156,7 @@ async fn main() {
 
         let game_time = get_time();
         let mut air_time: f32 = 10.;
+        let mut grounded = false;
 
         let get_game_time = || get_time() - game_time;
 
@@ -260,12 +264,12 @@ async fn main() {
 
                 let g_force = k.g_const * rocket.mass * planet.mass / square(dist);
 
-                planet.rotation = wrap_rotation(planet.rotation + planet.speed * dt);
+                planet.rotation = wrap_rotation(planet.rotation + planet.spin * dt);
 
                 if dist < planet.atmosphere {
                     let full_rot = planet.radius + 50.;
                     let factor = 1. - (dist - full_rot) / (planet.atmosphere - full_rot);
-                    base_spin += factor.clamp(0., 1.) * planet.speed;
+                    base_spin += factor.clamp(0., 1.) * planet.spin;
                 }
 
                 // dbg!(dist_sq);
@@ -298,6 +302,8 @@ async fn main() {
 
             let foot_length = foot_offset[0].length();
 
+            let mut collisions = Vec::new();
+
             for planet in &planets {
                 let mut dist_sq = planet.position.distance_squared(rocket.position);
 
@@ -310,6 +316,7 @@ async fn main() {
                     ));
 
                     let mut impact_result: Option<(Vec2, Vec2, f32)> = None;
+                    let mut num_impacts = 0;
 
                     for (offset, position, velocity) in feet {
 
@@ -317,11 +324,11 @@ async fn main() {
                         let planet_dist = on_ground.length();
                         if planet_dist < planet.radius {
 
-
+                            num_impacts += 1;
                             let ground_norm = on_ground / planet_dist;
 
                             let ground_offset = ground_norm * (planet.radius - planet_dist);
-                            let ground_velocity = on_ground.perp() * planet.speed;
+                            let ground_velocity = on_ground.perp() * planet.spin;
                             // let impact_vector = on_ground + ground_velocity;
                             // let impact_up = -velocity.project_onto_normalized(dbg!(ground_norm));
                             let ground_dot = ground_norm.dot(velocity).min(0.);
@@ -329,6 +336,8 @@ async fn main() {
                             let impact_ground_velocity = ground_velocity - velocity.project_onto_normalized(ground_norm.perp());
                             let impact_velocity = dbg!(impact_up_velocity) + dbg!(impact_ground_velocity);
                             let impact_spin = offset.perp_dot(impact_velocity);
+
+                            collisions.push((position, impact_velocity));
 
                             impact_result = if let Some((cur_offset, cur_velocity, cur_spin)) = impact_result {
                                 let combined_offset = cur_offset + ground_offset;
@@ -358,12 +367,23 @@ async fn main() {
                         rocket.position += ground_offset * 0.9;
                         rocket.velocity += impact_velocity * 0.9;
 
+                        let spin_boost = if grounded || num_impacts != 1 { 1. } else { 5. };
                         let r_inertia = 4. / (PI * square(square(k.rocket_radius)));
-                        rocket.spin += impact_spin * r_inertia;
+                        rocket.spin += impact_spin * r_inertia * spin_boost;
 
                         // update dist_sq to prevent death from unresolved collisions
                         dist_sq = planet.position.distance_squared(rocket.position);
                         air_time = 0.;
+
+                        let wanted_ground_speed = (rocket.position - planet.position).perp() * planet.spin;
+
+                        if num_impacts == 2 &&
+                            dbg!(rocket.spin - planet.spin).abs() < 0.1 &&
+                            dbg!(rocket.velocity - wanted_ground_speed).length_squared() < 100. {
+                            grounded = true;
+                        }
+                        todo!("Implement grounded");
+
                     }
 
                     if dist_sq < square(planet.radius + k.rocket_radius) {
@@ -491,13 +511,14 @@ async fn main() {
 
                 let mut house_rot = 0.;
                 for _ in 0..7 {
-                    if let Some(house_x_tex) = house_iter.next() {
-                        draw_texture_ex(house_x_tex,
-                                        planet.position.x - house_x_tex.width() / 2.,
-                                        planet.position.y - planet.radius - house_x_tex.height() + 10.,
+                    if let Some(next_house_tex) = house_iter.next() {
+                        let tex_size = next_house_tex.size() * 0.75;
+                        draw_texture_ex(next_house_tex,
+                                        planet.position.x - tex_size.x / 2.,
+                                        planet.position.y - planet.radius - tex_size.y + 7.,
                                         WHITE,
                                         DrawTextureParams {
-                                            // dest_size: Some(Vec2::new(20., 40.)),
+                                            dest_size: Some(tex_size),
                                             rotation: planet.rotation + house_rot,
                                             pivot: Some(planet.position),
                                             ..DrawTextureParams::default()
@@ -529,6 +550,14 @@ async fn main() {
                                     ..DrawTextureParams::default()
                                 });
             }
+            draw_texture_ex(&dir_indicator_tex, rocket.position.x - 1.5, rocket.position.y + 10.,
+                            Color::new(1., 1., 1., 0.4),
+                            DrawTextureParams {
+                                dest_size: Some(Vec2::new(3., 6.)),
+                                pivot: Some(rocket.position),
+                                rotation: game_time as f32,
+                                ..DrawTextureParams::default()
+                            });
 
             #[cfg(debug_assertions)]
             {
@@ -556,6 +585,13 @@ async fn main() {
                 //     }
                 // }
                 draw_circle_lines(rocket.position.x, rocket.position.y, k.rocket_radius, 2., ORANGE);
+
+                for (position, velocity) in &collisions {
+                    draw_circle(position.x, position.y, 4., if grounded { GREEN } else { RED });
+                    draw_line(position.x, position.y,
+                              position.x + velocity.x, position.y + velocity.y,
+                              1., BLUE);
+                }
             }
 
             next_frame().await
@@ -641,7 +677,7 @@ struct Planet
     atmosphere: f32,
     mass: f32,
     rotation: f32,
-    speed: f32,
+    spin: f32,
 }
 
 struct House
