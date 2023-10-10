@@ -209,7 +209,10 @@ async fn main() {
 
             for touch in touches() {
                 if touch.position.y < third_dim {
-                    input_thrust = true;
+                    if touch.phase == TouchPhase::Started {
+                        set_fullscreen(!is_fullscreen);
+                        is_fullscreen = !is_fullscreen;
+                    }
                 }
                 else if touch.position.x > screen_dim.x - third_dim {
                     input_right = true;
