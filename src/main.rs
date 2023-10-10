@@ -382,7 +382,7 @@ async fn main() {
                             dbg!(rocket.velocity - wanted_ground_speed).length_squared() < 100. {
                             grounded = true;
                         }
-                        todo!("Implement grounded");
+                        // todo!("Implement grounded");
 
                     }
 
@@ -550,12 +550,11 @@ async fn main() {
                                     ..DrawTextureParams::default()
                                 });
             }
-            draw_texture_ex(&dir_indicator_tex, rocket.position.x - 1.5, rocket.position.y + 10.,
-                            Color::new(1., 1., 1., 0.4),
+            draw_texture_ex(&dir_indicator_tex, rocket.position.x - 2., rocket.position.y + 15.,
+                            Color::new(1., 1., 1., 0.6),
                             DrawTextureParams {
-                                dest_size: Some(Vec2::new(3., 6.)),
-                                pivot: Some(rocket.position),
-                                rotation: game_time as f32,
+                                dest_size: Some(Vec2::new(6., 8.)),
+                                rotation: game_time as f32 * 10.,
                                 ..DrawTextureParams::default()
                             });
 
@@ -584,6 +583,8 @@ async fn main() {
                 //         draw_circle_lines(killer.position.x, killer.position.y, killer.radius - 1., 2., RED);
                 //     }
                 // }
+
+                draw_circle(rocket.position.x, rocket.position.y + 10., 5., SKYBLUE);
                 draw_circle_lines(rocket.position.x, rocket.position.y, k.rocket_radius, 2., ORANGE);
 
                 for (position, velocity) in &collisions {
@@ -598,6 +599,11 @@ async fn main() {
         }
         last_death = Some(rocket.position);
     }
+}
+
+enum FlyMode {
+    Grounded(i32),
+    Flying(f32),
 }
 
 #[derive(Debug)]
