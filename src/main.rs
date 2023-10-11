@@ -1,8 +1,10 @@
 use std::f32::consts::PI;
 use macroquad::hash;
 use macroquad::prelude::*;
+use macroquad::rand::ChooseRandom;
 use macroquad::ui::root_ui;
 
+const RADIAL_OFFSET: f32 = PI * 2. * 1.618033988;
 
 #[macroquad::main("A Tiny Corner of the Universe")]
 async fn main() {
@@ -13,6 +15,8 @@ async fn main() {
     let up_tex: Texture2D = load_texture("res/up.png").await.unwrap();
 
     let dir_indicator_tex = load_texture("res/dir.png").await.unwrap();
+    let box_tex = load_texture("res/box.png").await.unwrap();
+    let arrow_tex = load_texture("res/arrow.png").await.unwrap();
 
     let rocket_tex: Texture2D = load_texture("res/rocket.png").await.unwrap();
     let flame_tex: Texture2D = load_texture("res/flame.png").await.unwrap();
@@ -32,7 +36,7 @@ async fn main() {
 
 
     let mut house_tex: Vec<Texture2D> = Vec::new();
-    for number in  2..=22 {
+    for number in 2..=22 {
         house_tex.push(load_texture(&format!("res/house_{number}.png")).await.unwrap());
     }
 
@@ -51,114 +55,108 @@ async fn main() {
     let mut last_death: Option<Vec2> = None;
 
     loop {
-        let mut rocket = Rocket {
-            texture: rocket_tex.clone(),
+        let mut planets = [
+            Planet::new(&planet_tex[0], // lake
+                        Vec2::new(910., 800.),
+                        200.,
+                        350.,
+                        0.2,
+                        10000.,
+            ),
+            Planet::new(&planet_tex[1], // red
+                        Vec2::new(750., 270.),
+                        210.,
+                        350.,
+                        -0.22,
+                        10000.,
+            ),
+            Planet::new(&planet_tex[2], // ice
+                        Vec2::new(280., 470.),
+                        180.,
+                        320.,
+                        0.2,
+                        10000.,
+            ),
+            Planet::new(&planet_tex[3], // island
+                        Vec2::new(1350., 340.),
+                        220.,
+                        370.,
+                        0.35,
+                        10000.,
+            ),
+            Planet::new(&planet_tex[4], // no moon
+                        Vec2::new(1550., 850.),
+                        160.,
+                        260.,
+                        -0.1,
+                        10000.,
+            ),
+            Planet::new(&planet_tex[5], // dragon
+                        Vec2::new(370., 1100.),
+                        250.,
+                        400.,
+                        -0.4,
+                        20000.,
+            ),
+            Planet::new(&planet_tex[6], // lava
+                        Vec2::new(1100., 1300.),
+                        190.,
+                        370.,
+                        -0.1,
+                        10000.,
+            ),
+            Planet::new(&planet_tex[7], // river
+                        Vec2::new(300., 1700.),
+                        170.,
+                        310.,
+                        -0.3,
+                        10000.,
+            ),
+            Planet::new(&planet_tex[8], // bloom
+                        Vec2::new(1780., 200.),
+                        130.,
+                        210.,
+                        -0.4,
+                        15000.,
+            ),
+            Planet::new(&planet_tex[9], // sub
+                        Vec2::new(690., 1540.),
+                        110.,
+                        240.,
+                        0.2,
+                        15000.,
+            ),
+        ];
+
+        let mut rocket = Flyer {
+            texture: &rocket_tex,
             position: Vec2::new(120., 120.),
             rotation: PI * 3. / 4.,
             mass: 100.,
             velocity: Vec2::new(-60., -60.),
             spin: 0.,
+            state: FlyState::Flying(10.),
         };
 
 
-        let mut planets = [
-            Planet {
-                position: Vec2::new(910., 800.),
-                rotation: rand::gen_range(-PI, PI),
-                radius: 200.,
-                atmosphere: 350.,
-                spin: 0.2,
-                mass: 10000.,
-                texture: planet_tex[0].clone(), // lake
-            },
-            Planet {
-                position: Vec2::new(750., 270.),
-                rotation: rand::gen_range(-PI, PI),
-                radius: 210.,
-                atmosphere: 350.,
-                spin: -0.22,
-                mass: 10000.,
-                texture: planet_tex[1].clone(), // red
-            },
-            Planet {
-                position: Vec2::new(280., 470.),
-                rotation: rand::gen_range(-PI, PI),
-                radius: 180.,
-                atmosphere: 320.,
-                spin: 0.2,
-                mass: 10000.,
-                texture: planet_tex[2].clone(), // ice
-            },
-            Planet {
-                position: Vec2::new(1350., 340.),
-                rotation: rand::gen_range(-PI, PI),
-                radius: 220.,
-                atmosphere: 370.,
-                spin: 0.35,
-                mass: 10000.,
-                texture: planet_tex[3].clone(), // island
-            },
-            Planet {
-                position: Vec2::new(1550., 850.),
-                rotation: rand::gen_range(-PI, PI),
-                radius: 160.,
-                atmosphere: 260.,
-                spin: -0.1,
-                mass: 10000.,
-                texture: planet_tex[4].clone(), // no moon
-            },
-            Planet {
-                position: Vec2::new(370., 1100.),
-                rotation: rand::gen_range(-PI, PI),
-                radius: 250.,
-                atmosphere: 400.,
-                spin: -0.4,
-                mass: 20000.,
-                texture: planet_tex[5].clone(), // dragon
-            },
-            Planet {
-                position: Vec2::new(1100., 1300.),
-                rotation: rand::gen_range(-PI, PI),
-                radius: 190.,
-                atmosphere: 370.,
-                spin: -0.1,
-                mass: 10000.,
-                texture: planet_tex[6].clone(), // lava
-            },
-            Planet {
-                position: Vec2::new(300., 1700.),
-                rotation: rand::gen_range(-PI, PI),
-                radius: 170.,
-                atmosphere: 310.,
-                spin: -0.3,
-                mass: 10000.,
-                texture: planet_tex[7].clone(), // river
-            },
-            Planet {
-                position: Vec2::new(1780., 200.),
-                rotation: rand::gen_range(-PI, PI),
-                radius: 130.,
-                atmosphere: 210.,
-                spin: -0.4,
-                mass: 15000.,
-                texture: planet_tex[8].clone(), // bloom
-            },
-            Planet {
-                position: Vec2::new(690., 1540.),
-                rotation: rand::gen_range(-PI, PI),
-                radius: 110.,
-                atmosphere: 240.,
-                spin: 0.2,
-                mass: 15000.,
-                texture: planet_tex[9].clone(), // sub
-            },
-        ];
+        let mut package = Flyer {
+            texture: &box_tex,
+            position: planets[2].get_next_slot_position(20.),
+            rotation: planets[2].rotation + planets[2].next_slot as f32 * RADIAL_OFFSET,
+            mass: 32.,
+            velocity: Vec2::default(),
+            spin: 0.,
+            state: FlyState::Landed {
+                planet: 2,
+                position: planets[2].next_slot as f32 * RADIAL_OFFSET,
+            }
+        };
 
-        let game_time = get_time();
+        let game_start_time = get_time();
         let mut air_time: f32 = 10.;
         let mut grounded = false;
 
-        let get_game_time = || get_time() - game_time;
+        let get_game_time = || get_time() - game_start_time;
 
         let mut is_alive = true;
         while is_alive {
@@ -225,7 +223,10 @@ async fn main() {
                 }
             }
 
-            if get_game_time() < 1. {
+            let time = get_game_time() as f32;
+            let dt = get_frame_time().clamp(0., 0.2);
+
+            if time < 1. {
                 input_thrust = false;
             }
 
@@ -252,8 +253,6 @@ async fn main() {
                              });
 
             let mut torque: f32 = k.spin_input_torque * (f32::from(input_right) - f32::from(input_left));
-
-            let dt = get_frame_time().clamp(0., 0.2);
 
             let mut acceleration = Vec2::default();
 
@@ -386,7 +385,6 @@ async fn main() {
                             grounded = true;
                         }
                         // todo!("Implement grounded");
-
                     }
 
                     if dist_sq < square(planet.radius + k.rocket_radius) {
@@ -498,11 +496,11 @@ async fn main() {
                               lerp(0.2, 0.0, safety),
                               0.1 * alpha));
             }
-            let mut house_iter = house_tex.iter().cycle();
 
             for planet in &planets {
+
                 let img_size = planet.radius * 2.05;
-                draw_texture_ex(&planet.texture,
+                draw_texture_ex(planet.texture,
                                 planet.position.x - img_size / 2.,
                                 planet.position.y - img_size / 2.,
                                 WHITE,
@@ -512,22 +510,24 @@ async fn main() {
                                     ..DrawTextureParams::default()
                                 });
 
+
+                rand::srand(planet.random_seed as u64);
+                let mut houses = house_tex.iter().map(|tex| tex).collect::<Vec<_>>();
                 let mut house_rot = 0.;
-                for _ in 0..7 {
-                    if let Some(next_house_tex) = house_iter.next() {
-                        let tex_size = next_house_tex.size() * 0.75;
-                        draw_texture_ex(next_house_tex,
-                                        planet.position.x - tex_size.x / 2.,
-                                        planet.position.y - planet.radius - tex_size.y + 7.,
-                                        WHITE,
-                                        DrawTextureParams {
-                                            dest_size: Some(tex_size),
-                                            rotation: planet.rotation + house_rot,
-                                            pivot: Some(planet.position),
-                                            ..DrawTextureParams::default()
-                                        });
-                        house_rot += PI * 2. * 1.618033988;
-                    }
+                for _ in 0..planet.next_slot {
+                    let next_house_tex = houses.swap_remove(rand::gen_range(0, houses.len()));
+                    let tex_size = next_house_tex.size() * 0.75;
+                    let position = planet.get_position(house_rot, tex_size.y / 2. - 5.);
+                    draw_texture_ex(next_house_tex,
+                                    position.x - tex_size.x / 2.,
+                                    position.y - tex_size.y / 2.,
+                                    WHITE,
+                                    DrawTextureParams {
+                                        dest_size: Some(tex_size),
+                                        rotation: planet.rotation + house_rot + PI,
+                                        ..DrawTextureParams::default()
+                                    });
+                    house_rot += PI * 2. * 1.618033988;
                 }
 
                 #[cfg(debug_assertions)]
@@ -536,7 +536,22 @@ async fn main() {
                                 planet.rotation * 57.2957795, 1., RED);
             }
 
-            draw_texture_ex(&rocket.texture, rocket.position.x - 25., rocket.position.y - 30., WHITE,
+            if let FlyState::Landed { planet: planet_index, position: radial } = package.state {
+                package.position = planets[planet_index as usize].
+                    get_position(dbg!(radial), 20. + f32::sin(time * 5.) * 2.);
+                package.rotation = dbg!(planets[planet_index as usize].rotation + radial);
+            }
+            draw_texture_ex(package.texture,
+                            package.position.x - 15.,
+                            package.position.y - 15.,
+                            WHITE,
+                            DrawTextureParams {
+                                dest_size: Some(Vec2::new(30., 30.)),
+                                rotation: package.rotation + PI + f32::sin(time * 10.) * 0.2,
+                                ..DrawTextureParams::default()
+                            });
+
+            draw_texture_ex(rocket.texture, rocket.position.x - 25., rocket.position.y - 30., WHITE,
                             DrawTextureParams {
                                 dest_size: Some(Vec2::new(50., 65.)),
                                 pivot: Some(rocket.position),
@@ -557,7 +572,7 @@ async fn main() {
                             Color::new(1., 1., 1., 0.6),
                             DrawTextureParams {
                                 dest_size: Some(Vec2::new(6., 8.)),
-                                rotation: game_time as f32 * 10.,
+                                rotation: time,
                                 ..DrawTextureParams::default()
                             });
 
@@ -604,10 +619,10 @@ async fn main() {
     }
 }
 
-enum FlyMode {
-    Grounded(i32),
-    Flying(f32),
-}
+// enum FlyMode {
+//     Grounded(i32),
+//     Flying(f32),
+// }
 
 #[derive(Debug)]
 struct Konst
@@ -671,38 +686,70 @@ fn v_lerp_exp(value: Vec2, target: Vec2, speed: f32, dt: f32) -> Vec2 {
     v_lerp(target, value, (-speed * dt).exp2())
 }
 
-struct Sprite
+struct Planet<'a>
 {
-    texture: Texture2D,
-    size: Vec2,
-    pivot: Vec2,
-}
-
-struct Planet
-{
-    texture: Texture2D,
+    texture: &'a Texture2D,
     position: Vec2,
     radius: f32,
     atmosphere: f32,
-    mass: f32,
     rotation: f32,
     spin: f32,
+    mass: f32,
+    next_slot: i32,
+    random_seed: u32,
 }
 
-struct House
+impl<'a> Planet<'a> {
+    fn new(texture: &'a Texture2D, position: Vec2, radius: f32, atmosphere: f32, spin: f32, mass: f32) -> Self {
+        Planet {
+            texture,
+            position,
+            radius,
+            atmosphere,
+            spin,
+            mass,
+            rotation: rand::gen_range(-PI, PI),
+            next_slot: rand::gen_range(1, 3),
+            random_seed: rand::rand(),
+        }
+    }
+
+    fn get_position(&self, radial_position: f32, height: f32) -> Vec2 {
+        let rotation = self.rotation + radial_position;
+        let rotator = Vec2::new(rotation.cos(), rotation.sin());
+
+        self.position + rotator.rotate(Vec2::new(0., self.radius + height))
+    }
+
+    fn get_next_slot_position(&self, height: f32) -> Vec2 {
+        self.get_position(self.next_slot as f32 * RADIAL_OFFSET, height)
+    }
+}
+
+struct House<'a>
 {
-    texture: Texture2D,
+    texture: &'a Texture2D,
     position: f32, // radial position on planet
     height: f32,
     width: f32,
 }
 
-struct Rocket
+enum FlyState
 {
-    texture: Texture2D,
+    Landed{
+        planet: u32,
+        position: f32,
+    },
+    Flying(f32),
+}
+
+struct Flyer<'a>
+{
+    texture: &'a Texture2D,
     position: Vec2,
     rotation: f32,
     mass: f32,
     velocity: Vec2,
     spin: f32,
+    state: FlyState,
 }
