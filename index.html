@@ -2,15 +2,16 @@
 
 <head>
     <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>A Tiny Corner of the Universe</title>
     <style>
         html,
         body,
         canvas {
-            margin: 0px;
-            padding: 0px;
-            width: 100%;
-            height: 100%;
+            margin: 0;
+            padding: 0;
+            width: 100dvw;
+            height: 100dvh;
             overflow: hidden;
             position: absolute;
             background: black;
@@ -23,7 +24,7 @@
 <canvas id="glcanvas" tabindex='1'></canvas>
 <!-- Minified and statically hosted version of https://github.com/not-fl3/macroquad/blob/master/js/mq_js_bundle.js -->
 <script src="mq_js_bundle.js"></script>
-<script>load("target/wasm32-unknown-unknown/release/ldj54.wasm");</script> <!-- Your compiled wasm file -->
+<script>load("ldj54.wasm");</script> <!-- Your compiled wasm file -->
 </body>
 
 </html>

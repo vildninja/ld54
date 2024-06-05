@@ -6,4 +6,8 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-macroquad = { version = "0.4.4", default-features = false }
+macroquad = { version = "0.4", default-features = false }
+
+[profile.release]
+lto = true
+opt-level = "s" #smaller than "z"

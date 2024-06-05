@@ -1,14 +1,26 @@
 use std::f32::consts::PI;
 use macroquad::hash;
+use macroquad::miniquad::window::{dpi_scale, high_dpi};
 use macroquad::prelude::*;
 use macroquad::rand::ChooseRandom;
 use macroquad::ui::root_ui;
 
 const RADIAL_OFFSET: f32 = PI * 2. * 1.618033988;
 
-#[macroquad::main("A Tiny Corner of the Universe")]
-async fn main() {
+fn window_conf() -> Conf {
+    Conf {
+        window_title: "A Tiny Corner of the Universe".to_owned(),
+        fullscreen: false,
+        high_dpi: true,
+        sample_count: 0,
+        window_resizable: true,
+        ..Default::default()
+    }
+}
 
+// #[macroquad::main("A Tiny Corner of the Universe")]
+#[macroquad::main(window_conf)]
+async fn main() {
     let bg_tex: Texture2D = load_texture("res/bg.png").await.unwrap();
     let left_tex: Texture2D = load_texture("res/left.png").await.unwrap();
     let right_tex: Texture2D = load_texture("res/right.png").await.unwrap();
@@ -16,7 +28,7 @@ async fn main() {
 
     let dir_indicator_tex = load_texture("res/dir.png").await.unwrap();
     let box_tex = load_texture("res/box.png").await.unwrap();
-    let arrow_tex = load_texture("res/arrow.png").await.unwrap();
+    // let arrow_tex = load_texture("res/arrow.png").await.unwrap();
 
     let rocket_tex: Texture2D = load_texture("res/rocket.png").await.unwrap();
     let flame_tex: Texture2D = load_texture("res/flame.png").await.unwrap();
@@ -52,7 +64,7 @@ async fn main() {
         mouse_input = false;
     }
 
-    let mut last_death: Option<Vec2> = None;
+    let mut _last_death: Option<Vec2> = None;
 
     loop {
         let mut planets = [
@@ -153,7 +165,7 @@ async fn main() {
         };
 
         let game_start_time = get_time();
-        let mut air_time: f32 = 10.;
+        let mut _air_time: f32 = 10.;
         let mut grounded = false;
 
         let get_game_time = || get_time() - game_start_time;
@@ -163,7 +175,8 @@ async fn main() {
 
             let screen_dim = Vec2::new(screen_width(), screen_height());
             let min_dim = screen_dim.min_element();
-            let third_dim = min_dim / 3.;
+            let third_dim = screen_dim / 3.;
+            let min_third_dim = min_dim / 3.;
 
             let mut input_left = is_key_down(KeyCode::A) ||
                 is_key_down(KeyCode::Left);
@@ -174,7 +187,7 @@ async fn main() {
                 is_key_down(KeyCode::Space);
 
             if is_key_pressed(KeyCode::F) ||
-                (mouse_input && is_mouse_button_pressed(MouseButton::Left) && mouse_position().1 < third_dim) {
+                (mouse_input && is_mouse_button_pressed(MouseButton::Left) && mouse_position().1 < third_dim.y) {
                 set_fullscreen(!is_fullscreen);
                 is_fullscreen = !is_fullscreen;
             }
@@ -192,12 +205,12 @@ async fn main() {
             if mouse_input {
                 if is_mouse_button_down(MouseButton::Left) || is_mouse_button_down(MouseButton::Right) {
                     let mouse_pos = mouse_position();
-                    if mouse_pos.1 < third_dim {
+                    if mouse_pos.1 < third_dim.y {
                         // fullscreen?
                         // input_thrust = true;
-                    } else if mouse_pos.0 > screen_dim.x - third_dim {
+                    } else if mouse_pos.0 > screen_dim.x - min_third_dim {
                         input_right = true;
-                    } else if mouse_pos.0 > screen_dim.x - third_dim * 2. {
+                    } else if mouse_pos.0 > screen_dim.x - min_third_dim * 2. {
                         input_left = true;
                     } else {
                         input_thrust = true;
@@ -206,16 +219,16 @@ async fn main() {
             }
 
             for touch in touches() {
-                if touch.position.y < third_dim {
+                if touch.position.y < third_dim.y {
                     if touch.phase == TouchPhase::Started {
                         set_fullscreen(!is_fullscreen);
                         is_fullscreen = !is_fullscreen;
                     }
                 }
-                else if touch.position.x > screen_dim.x - third_dim {
+                else if touch.position.x > screen_dim.x - min_third_dim {
                     input_right = true;
                 }
-                else if touch.position.x >  screen_dim.x - third_dim * 2. {
+                else if touch.position.x >  screen_dim.x - min_third_dim * 2. {
                     input_left = true;
                 }
                 else {
@@ -250,6 +263,16 @@ async fn main() {
                                      File::create("Konst.txt").unwrap().
                                          write_all(format!("{k:?}").as_bytes()).unwrap();
                                  }
+                             });
+
+            root_ui().window(hash!(),
+                             Vec2::new(10., 220.),
+                             Vec2::new(200., 100.),
+                             |ui| {
+                                 ui.label(None, &format!("screen {screen_dim}"));
+                                 ui.label(None, &format!("dpi scale {}", dpi_scale()));
+                                 ui.label(None, &format!("high dpi {}", high_dpi()));
+                                 ui.label(None, &format!("fullscreen {}", is_fullscreen));
                              });
 
             let mut torque: f32 = k.spin_input_torque * (f32::from(input_right) - f32::from(input_left));
@@ -295,7 +318,7 @@ async fn main() {
             rocket.position += rocket.velocity * dt;
             // dbg!(rocket.position);
 
-            air_time += dt;
+            _air_time += dt;
 
             let foot_offset = [
                 rotator.rotate(Vec2::new(-k.rocket_feet_width, k.rocket_feet_height)),
@@ -375,7 +398,7 @@ async fn main() {
 
                         // update dist_sq to prevent death from unresolved collisions
                         dist_sq = planet.position.distance_squared(rocket.position);
-                        air_time = 0.;
+                        _air_time = 0.;
 
                         let wanted_ground_speed = (rocket.position - planet.position).perp() * planet.spin;
 
@@ -419,14 +442,14 @@ async fn main() {
 
             let arrow_size = min_dim / 6.;
             let half_arrow_size = arrow_size / 2.;
-            let arrow_y_pos = screen_height() - third_dim + half_arrow_size;
+            let arrow_y_pos = screen_height() - min_third_dim + half_arrow_size;
 
-            draw_texture_ex(&left_tex, screen_dim.x - third_dim * 2. + half_arrow_size, arrow_y_pos, WHITE,
+            draw_texture_ex(&left_tex, screen_dim.x - min_third_dim * 2. + half_arrow_size, arrow_y_pos, WHITE,
                             DrawTextureParams {
                                 dest_size: Some(Vec2::new(arrow_size, arrow_size)),
                                 ..DrawTextureParams::default()
                             });
-            draw_texture_ex(&right_tex, screen_dim.x - third_dim + half_arrow_size, arrow_y_pos, WHITE,
+            draw_texture_ex(&right_tex, screen_dim.x - min_third_dim + half_arrow_size, arrow_y_pos, WHITE,
                             DrawTextureParams {
                                 dest_size: Some(Vec2::new(arrow_size, arrow_size)),
                                 ..DrawTextureParams::default()
@@ -593,7 +616,7 @@ async fn main() {
                 draw_line(1000., 0., 1000., 500., 2., BLACK);
                 draw_line(0., 1000., 500., 1000., 2., BLACK);
 
-                if let Some(death_pos) = &last_death {
+                if let Some(death_pos) = &_last_death {
                     draw_circle(death_pos.x, death_pos.y, k.rocket_radius, RED);
                 }
                 // if let Some(index) = killer_index {
@@ -613,9 +636,15 @@ async fn main() {
                 }
             }
 
+            macroquad::camera::set_default_camera();
+            draw_line(0., 0., screen_dim.x, screen_dim.y, 2., BLACK);
+            draw_line(0., third_dim.y, screen_dim.x, third_dim.y, 2., YELLOW);
+            draw_line(0., third_dim.y * 2., screen_dim.x, third_dim.y * 2., 2., YELLOW);
+
+
             next_frame().await
         }
-        last_death = Some(rocket.position);
+        _last_death = Some(rocket.position);
     }
 }
 
